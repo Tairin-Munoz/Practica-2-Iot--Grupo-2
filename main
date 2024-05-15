@@ -10,10 +10,10 @@ const char * WIFI_PASS = "76411926";
 const char * MQTT_BROKER_HOST = "a1wwxy8igchsca-ats.iot.us-east-2.amazonaws.com";
 const int MQTT_BROKER_PORT = 8883;
 
-const char * MQTT_CLIENT_ID = "ESP-32";                                               // Unique CLIENT_ID
+const char * MQTT_CLIENT_ID = "ESP-32";
 
-const char * UPDATE_TOPIC = "$aws/things/objetoBonito4YaValio/shadow/name/ShadowCasa/update";              // publish
-const char * UPDATE_DELTA_TOPIC = "$aws/things/objetoBonito4YaValio/shadow/name/ShadowCasa/update/accepted";  // subscribe
+const char * UPDATE_TOPIC = "$aws/things/objetoBonito4YaValio/shadow/name/ShadowCasa/update";
+const char * UPDATE_DELTA_TOPIC = "$aws/things/objetoBonito4YaValio/shadow/name/ShadowCasa/update/accepted";
 
 const char AMAZON_ROOT_CA1[] PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
@@ -101,26 +101,58 @@ char outputBuffer[128];
 
 unsigned char servo = 0;
 
-long readUltrasonicDistance(int triggerPin, int echoPin)
+class ServoMotor
 {
-  pinMode(triggerPin, OUTPUT);  // Clear the trigger
-  digitalWrite(triggerPin, LOW);
-  delayMicroseconds(2);
-  // Sets the trigger pin to HIGH state for 10 microseconds
-  digitalWrite(triggerPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(triggerPin, LOW);
+private:
+  int pin;
 
-  pinMode(echoPin, INPUT);
-  return pulseIn(echoPin, HIGH);
-}
+public:
+  ServoMotor(int pin)
+  {
+    this->pin=pin;
+    miServo.attach(pin);
+  }
+  void girar(int grados)
+  {
+    miServo.write(grados);
+  }
+};
 
-int distancia()
+class SensorUltrasonico
 {
-  int cm = 0;
-  cm=0.01723*readUltrasonicDistance(21,19);
-  return cm;
-}
+  private:
+  int triggerPin;
+  int echoPin;
+  long readUltrasonicDistance(int triggerPin, int echoPin)
+  {
+    pinMode(triggerPin, OUTPUT);  
+    digitalWrite(triggerPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(triggerPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(triggerPin, LOW);
+
+    pinMode(echoPin, INPUT);
+    return pulseIn(echoPin, HIGH);
+  }
+  public:
+  SensorUltrasonico(int triggerPin,int echoPin)
+  {
+    this->triggerPin=triggerPin;
+    this->echoPin=echoPin;
+  }
+  int distancia()
+  {
+    int cm = 0;
+    cm=0.01723*readUltrasonicDistance(triggerPin,echoPin);
+    return cm;
+  }
+
+};
+
+ServoMotor servoMotor(26);
+SensorUltrasonico sensorDistancia(21,19);
+
 
 
 void reportServo() {
@@ -130,12 +162,14 @@ void reportServo() {
 }
 
 void setServo() {
-  if (servo) {
-    miServo.write(90);
-    }
-  else{
-    miServo.write(0);
-    }
+  if (servo) 
+  {
+    servoMotor.girar(90);
+  }
+  else
+  {
+    servoMotor.girar(0);
+  }
     //reportServo();
 
 }
@@ -169,9 +203,10 @@ void callback(const char * topic, byte * payload, unsigned int length) {
 
 }
 
+
+
 void setup() {
   Serial.begin(115200);
-  miServo.attach(26);
   Serial.print("Connecting to " + String(WIFI_SSID));
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   while (WiFi.status() != WL_CONNECTED) {
@@ -203,7 +238,7 @@ void setup() {
 
 void loop() {
 
-  int dist=distancia();
+  int dist=sensorDistancia.distancia();
   if(dist<=10)
   {
     if(servo==1)
